@@ -1,6 +1,7 @@
 package co.abaye.mailtice.main
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -51,33 +52,35 @@ import org.jetbrains.compose.resources.stringResource
  * file; import reads one written by the app elsewhere or by the browser extension.
  */
 @Composable
-internal fun TransferSection(status: TransferStatus, onIntent: (AppIntent) -> Unit) {
-    SectionHeader(stringResource(Res.string.transfer_title))
-    val running = status is TransferStatus.Running
-    SettingRow(stringResource(Res.string.transfer_export), subtitle = stringResource(Res.string.transfer_export_desc)) {
-        OutlinedButton(onClick = { onIntent(AppIntent.ExportMail) }, enabled = !running) {
-            Text(stringResource(Res.string.transfer_export_button))
-        }
-    }
-    if (TransferFiles.canImport) {
-        val title = stringResource(Res.string.transfer_import_title)
-        SettingRow(stringResource(Res.string.transfer_import), subtitle = stringResource(Res.string.transfer_import_desc)) {
-            OutlinedButton(onClick = { onIntent(AppIntent.ImportMail(title)) }, enabled = !running) {
-                Text(stringResource(Res.string.transfer_import_button))
+internal fun TransferSection(status: TransferStatus, onIntent: (AppIntent) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        SectionHeader(stringResource(Res.string.transfer_title))
+        val running = status is TransferStatus.Running
+        SettingRow(stringResource(Res.string.transfer_export), subtitle = stringResource(Res.string.transfer_export_desc)) {
+            OutlinedButton(onClick = { onIntent(AppIntent.ExportMail) }, enabled = !running) {
+                Text(stringResource(Res.string.transfer_export_button))
             }
         }
+        if (TransferFiles.canImport) {
+            val title = stringResource(Res.string.transfer_import_title)
+            SettingRow(stringResource(Res.string.transfer_import), subtitle = stringResource(Res.string.transfer_import_desc)) {
+                OutlinedButton(onClick = { onIntent(AppIntent.ImportMail(title)) }, enabled = !running) {
+                    Text(stringResource(Res.string.transfer_import_button))
+                }
+            }
+        }
+        SettingRow(stringResource(Res.string.transfer_extension)) {
+            TextButton(onClick = { Platform.openUrl(RELEASES_URL) }) { Text(stringResource(Res.string.transfer_extension_button)) }
+        }
+        if (status != TransferStatus.Idle) TransferStatusCard(status, onIntent)
     }
-    SettingRow(stringResource(Res.string.transfer_extension)) {
-        TextButton(onClick = { Platform.openUrl(RELEASES_URL) }) { Text(stringResource(Res.string.transfer_extension_button)) }
-    }
-    if (status != TransferStatus.Idle) TransferStatusCard(status, onIntent)
 }
 
 @Composable
-private fun TransferStatusCard(status: TransferStatus, onIntent: (AppIntent) -> Unit) {
+private fun TransferStatusCard(status: TransferStatus, onIntent: (AppIntent) -> Unit, modifier: Modifier = Modifier) {
     val failed = status is TransferStatus.Failed
     Surface(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier.fillMaxWidth().padding(vertical = 6.dp),
         shape = RoundedCornerShape(12.dp),
         color = if (failed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
     ) {

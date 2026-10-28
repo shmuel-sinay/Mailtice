@@ -2330,7 +2330,7 @@ class AppViewModel(
     private fun importMail(title: String) {
         if (_state.value.transfer is TransferStatus.Running) return
         scope.launch {
-            val path = TransferFiles.pick(title) ?: return@launch
+            val path = withContext(io) { TransferFiles.pick(title) } ?: return@launch
             mutate { it.copy(transfer = TransferStatus.Running(importing = true, messages = 0)) }
             val result = withContext(io) {
                 runCatching {

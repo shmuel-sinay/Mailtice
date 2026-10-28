@@ -293,11 +293,48 @@ jobs:
           path: out/*
           if-no-files-found: error
 
+  extension:
+    name: Browser extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_VERSION: ${{ github.ref_name }}
+      # The same Web client Android signs in with; its Authorized redirect URIs must list
+      # https://pkhenaholjpdalldmcndfgkfdpabkjan.chromiumapp.org/ (extension/README.md).
+      GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version for manual runs
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        shell: bash
+        run: echo "RELEASE_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || true)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Test the exporter
+        run: node extension/test/export.test.mjs "$RUNNER_TEMP/export-test.zip"
+
+      - name: Pack
+        run: bash extension/build.sh "$RELEASE_VERSION"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: extension
+          path: extension/dist/*.zip
+          if-no-files-found: error
+
   publish:
     name: Publish release
-    needs: [desktop, android]
-    # Publish whatever succeeded rather than losing a whole release to one dead runner.
-    if: ${{ !cancelled() && github.event_name == 'push' }}
+    needs: [desktop, android, extension]
+    # Publish whatever succeeded rather than losing a whole release to one dead runner. A manual
+    # run publishes too when it is started on a tag (Actions -> Release -> Run workflow -> the tag),
+    # for a tag pushed while Actions was off.
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -347,7 +384,7 @@ jobs:
           #   .aab      is a Play upload format; downloading one gets you a file you cannot
           #             install, so it stays a workflow artifact and never reaches the release.
           #   .zip      is the macOS updater payload (the updater cannot consume a .dmg), and the
-          #             Windows portable copy.
+          #             Windows portable copy, and the browser extension.
           #   .yml      is the update manifest generated just above.
           #   .blockmap lets an update download only the changed blocks of an installer. The
           #             updater falls back to the whole file if it is missing, so this is a size

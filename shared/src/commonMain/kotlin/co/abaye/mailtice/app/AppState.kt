@@ -2,6 +2,7 @@ package co.abaye.mailtice.app
 
 import androidx.compose.runtime.Immutable
 import co.abaye.mailtice.auth.BrowserProfile
+import co.abaye.mailtice.auth.OAuthKeys
 import co.abaye.mailtice.data.Contact
 import co.abaye.mailtice.data.ScheduledMail
 import co.abaye.mailtice.domain.Account
@@ -292,6 +293,8 @@ data class AppState(
     val selection: Set<String> = emptySet(),
     /** A download or export is running; the UI shows progress and blocks a second one. */
     val working: Boolean = false,
+    /** OAuth clients entered in Settings (desktop); "" = the build's own. */
+    val oauthKeys: OAuthKeys = OAuthKeys(),
     /** The transfer file export or import, as the settings show it. */
     val transfer: TransferStatus = TransferStatus.Idle,
     val storage: StorageUsage = StorageUsage(),

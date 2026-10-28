@@ -7,6 +7,8 @@ import co.abaye.mailtice.app.WebProfileRequest
 import co.abaye.mailtice.auth.AuthCancelledException
 import co.abaye.mailtice.auth.AuthManager
 import co.abaye.mailtice.auth.Authorizer
+import co.abaye.mailtice.auth.OAuthKeys
+import co.abaye.mailtice.auth.OAuthOverrides
 import co.abaye.mailtice.auth.OAuthProvider
 import co.abaye.mailtice.auth.ReauthRequiredException
 import co.abaye.mailtice.data.InboxQuery
@@ -596,6 +598,8 @@ class AppViewModel(
 
             AppIntent.ExportMail -> exportMail()
 
+            is AppIntent.SaveOAuthKeys -> saveOAuthKeys(intent.keys)
+
             is AppIntent.ImportMail -> importMail(intent.title)
 
             AppIntent.DismissTransfer -> mutate {
@@ -800,11 +804,18 @@ class AppViewModel(
     }
 
     private fun restore(): AppState {
+        OAuthOverrides.load(secrets)
         var data = store.load()
         if (data.settings.uiLanguageAuto) {
             data = data.copy(settings = data.settings.copy(uiLanguage = systemUiLanguage()))
         }
-        return AppState(data = data, availableProviders = availableProviders())
+        return AppState(data = data, availableProviders = availableProviders(), oauthKeys = OAuthOverrides.keys)
+    }
+
+    /** Sign-in keys typed in Settings: providers they make available show up in "Add account" at once. */
+    private fun saveOAuthKeys(keys: OAuthKeys) {
+        OAuthOverrides.save(secrets, keys)
+        mutate { it.copy(oauthKeys = OAuthOverrides.keys, availableProviders = availableProviders(), message = AppMessage.OAuthKeysSaved) }
     }
 
     /**
@@ -2037,6 +2048,7 @@ class AppViewModel(
                 withContext(io) { repo.deleteAccount(account.id) }
             }
             secrets.clear()
+            OAuthOverrides.load(secrets)
             store.clear()
             withContext(io) { repo.vacuum() }
             mutate { AppState(data = seedData(), availableProviders = it.availableProviders, message = AppMessage.ResetDone) }

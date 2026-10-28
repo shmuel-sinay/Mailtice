@@ -588,4 +588,12 @@
     <string name="transfer_too_new">הקובץ נוצר בגרסה חדשה יותר של Mailtice. יש לעדכן את Mailtice כדי לייבא אותו.</string>
     <string name="transfer_show">הצג קובץ</string>
     <string name="transfer_dismiss">סגור</string>
+    <string name="oauth_keys_title">מפתחות התחברות (OAuth)</string>
+    <string name="oauth_keys_desc">לעותק של Mailtice שנבנה בלעדיהם: לקוחות ה-OAuth של Google ושל Microsoft שדרכם מתחברים. ב-Google צריך לקוח מסוג Desktop app עם Gmail API מופעל. אם משאירים ריק, משתמשים במפתחות המובנים. חשבונות שנוספו עם מפתחות אחרים יצטרכו להתחבר מחדש אחרי שינוי.</string>
+    <string name="oauth_keys_google_id">מזהה לקוח של Google</string>
+    <string name="oauth_keys_google_secret">סוד לקוח של Google</string>
+    <string name="oauth_keys_microsoft_id">מזהה לקוח של Microsoft</string>
+    <string name="oauth_keys_save">שמירה</string>
+    <string name="oauth_keys_help">איך יוצרים אותם</string>
+    <string name="message_oauth_keys_saved">מפתחות ההתחברות נשמרו</string>
 </resources>

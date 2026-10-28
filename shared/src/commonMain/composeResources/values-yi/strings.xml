@@ -548,4 +548,12 @@
     <string name="transfer_too_new">די טעקע קומט פון א נייערע Mailtice. דערהיינטיקט Mailtice כדי זי צו אימפארטירן.</string>
     <string name="transfer_show">ווייזן די טעקע</string>
     <string name="transfer_dismiss">פארמאכן</string>
+    <string name="oauth_keys_title">איינלאגירונג שליסלען (OAuth)</string>
+    <string name="oauth_keys_desc">פאר א קאפיע פון Mailtice וואס איז געבויט געווארן אן זיי: די OAuth קליענטן פון Google און Microsoft דורך וועלכע מען לאגירט איין. ביי Google דארף מען א קליענט פון טיפ Desktop app מיט Gmail API אנגעצונדן. לאזט ליידיק צו ניצן די איינגעבויטע. חשבונות וואס זענען צוגעלייגט געווארן מיט אנדערע שליסלען וועלן דארפן נאכאמאל איינלאגירן נאך א טויש.</string>
+    <string name="oauth_keys_google_id">Google קליענט ID</string>
+    <string name="oauth_keys_google_secret">Google קליענט סוד</string>
+    <string name="oauth_keys_microsoft_id">Microsoft קליענט ID</string>
+    <string name="oauth_keys_save">אפהיטן</string>
+    <string name="oauth_keys_help">ווי אזוי זיי צו שאפן</string>
+    <string name="message_oauth_keys_saved">די איינלאגירונג שליסלען זענען אפגעהיטן</string>
 </resources>

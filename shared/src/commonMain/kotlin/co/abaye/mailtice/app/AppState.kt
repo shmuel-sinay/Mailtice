@@ -23,6 +23,8 @@ import co.abaye.mailtice.domain.conversationKey
 import co.abaye.mailtice.domain.groupConversations
 import co.abaye.mailtice.provider.ImapLoginException
 import co.abaye.mailtice.sync.PollPlan
+import co.abaye.mailtice.transfer.TransferError
+import co.abaye.mailtice.transfer.TransferSummary
 
 @Immutable
 sealed interface AppDialog {
@@ -290,6 +292,8 @@ data class AppState(
     val selection: Set<String> = emptySet(),
     /** A download or export is running; the UI shows progress and blocks a second one. */
     val working: Boolean = false,
+    /** The transfer file export or import, as the settings show it. */
+    val transfer: TransferStatus = TransferStatus.Idle,
     val storage: StorageUsage = StorageUsage(),
     val addAccount: AddAccountStep? = null,
     /** Browser profiles found on this computer (desktop); two or more bring up the profile picker. */
@@ -418,4 +422,18 @@ data class AppState(
     }
 
     val needsReauth: List<Account> get() = accounts.filter { status(it.id) == AccountStatus.NeedsReauth }
+}
+
+/** Export to or import from a transfer file (a computer without internet), for the settings to show. */
+@Immutable
+sealed interface TransferStatus {
+    data object Idle : TransferStatus
+
+    /** [messages] done so far. */
+    data class Running(val importing: Boolean, val messages: Int) : TransferStatus
+
+    /** [location] is where the export went (null for an import). */
+    data class Done(val importing: Boolean, val summary: TransferSummary, val location: String? = null) : TransferStatus
+
+    data class Failed(val importing: Boolean, val error: TransferError) : TransferStatus
 }

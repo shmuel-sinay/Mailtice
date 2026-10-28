@@ -6,6 +6,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # A branch can be checked by hand before it has a pull request.
+  workflow_dispatch:
 
 # A new push to the same branch makes the previous run pointless.
 concurrency:

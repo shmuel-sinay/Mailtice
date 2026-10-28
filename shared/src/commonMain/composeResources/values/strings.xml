@@ -563,4 +563,26 @@
     <string name="home_sync_now">Sync now</string>
     <string name="accounts_move_up">Move up</string>
     <string name="accounts_move_down">Move down</string>
+    <string name="status_from_file">From a file</string>
+    <string name="accounts_connect">Connect</string>
+    <string name="transfer_title">Computer without internet</string>
+    <string name="transfer_export">Export mail to a file</string>
+    <string name="transfer_export_desc">Every account's mail stored here, in one .mailtice file to carry to a computer without internet. With offline mode on, that is the whole mailbox with its attachments.</string>
+    <string name="transfer_export_button">Export</string>
+    <string name="transfer_import">Import mail from a file</string>
+    <string name="transfer_import_desc">A .mailtice file from Mailtice on another computer or from the Mailtice browser extension. An account not signed in here is added as a copy to read.</string>
+    <string name="transfer_import_button">Import</string>
+    <string name="transfer_import_title">Choose a Mailtice file</string>
+    <string name="transfer_extension">No Mailtice on the computer with internet? The Mailtice browser extension exports Gmail to the same file.</string>
+    <string name="transfer_extension_button">Get the extension</string>
+    <string name="transfer_exporting">Exporting... %1$d messages</string>
+    <string name="transfer_importing">Importing... %1$d messages</string>
+    <string name="transfer_exported">Exported %1$d messages from %2$d accounts</string>
+    <string name="transfer_imported">Imported %1$d messages into %2$d accounts</string>
+    <string name="transfer_export_failed">The export failed. Check that the disk has room and try again.</string>
+    <string name="transfer_import_failed">The file could not be read.</string>
+    <string name="transfer_not_a_file">This is not a Mailtice transfer file.</string>
+    <string name="transfer_too_new">This file comes from a newer Mailtice. Update Mailtice to import it.</string>
+    <string name="transfer_show">Show file</string>
+    <string name="transfer_dismiss">Close</string>
 </resources>

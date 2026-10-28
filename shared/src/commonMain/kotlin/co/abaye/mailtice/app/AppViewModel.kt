@@ -70,6 +70,13 @@ import co.abaye.mailtice.sync.NewMail
 import co.abaye.mailtice.sync.OfflinePrefs
 import co.abaye.mailtice.sync.SyncEngine
 import co.abaye.mailtice.sync.isNetworkError
+import co.abaye.mailtice.transfer.MailExporter
+import co.abaye.mailtice.transfer.MailImporter
+import co.abaye.mailtice.transfer.TransferError
+import co.abaye.mailtice.transfer.TransferException
+import co.abaye.mailtice.transfer.TransferFiles
+import co.abaye.mailtice.transfer.TransferFormat
+import co.abaye.mailtice.transfer.TransferSummary
 import co.abaye.mailtice.translate.Translator
 import co.abaye.mailtice.translate.htmlTextSegments
 import co.abaye.mailtice.translate.replaceSegments
@@ -111,6 +118,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import mailtice.shared.generated.resources.Res
 import mailtice.shared.generated.resources.compose_attach
 import mailtice.shared.generated.resources.compose_forward_date
@@ -125,6 +133,8 @@ import mailtice.shared.generated.resources.export_exported
 import mailtice.shared.generated.resources.export_from
 import mailtice.shared.generated.resources.export_to
 import kotlin.io.encoding.Base64
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -584,6 +594,14 @@ class AppViewModel(
 
             AppIntent.ExportDiagnostics -> exportDiagnostics()
 
+            AppIntent.ExportMail -> exportMail()
+
+            is AppIntent.ImportMail -> importMail(intent.title)
+
+            AppIntent.DismissTransfer -> mutate {
+                if (it.transfer is TransferStatus.Running) it else it.copy(transfer = TransferStatus.Idle)
+            }
+
             is AppIntent.SetTheme -> settings { it.copy(theme = intent.mode) }
 
             is AppIntent.SetAccent -> settings { it.copy(accent = intent.accent) }
@@ -918,6 +936,8 @@ class AppViewModel(
                             ),
                         )
                     }
+                    // A copy from a transfer file is signed in at last: it syncs from now on.
+                    if (known?.fileOnly == true) repo.setFileOnly(known.id, false)
                 }
                 if (known != null) sync.restart(scope, known.id)
                 if (profileKey != null) rememberBrowser(id, profileKey)
@@ -1036,6 +1056,7 @@ class AppViewModel(
                     } else {
                         repo.updateServer(id, server, username)
                         repo.updateCapabilities(id, capabilities)
+                        repo.setFileOnly(id, false)
                     }
                 }
                 if (form.reconnectId != null) sync.restart(scope, id)
@@ -2262,6 +2283,87 @@ class AppViewModel(
             Platform.revealDownload(location)
             mutate { it.copy(message = AppMessage.Exported) }
         }
+    }
+
+    // ---- transfer file -----------------------------------------------------------------------
+
+    /**
+     * Every account's stored mail in one file (see [co.abaye.mailtice.transfer.TransferFormat]),
+     * saved with the downloads and shown in the file manager, to carry to a computer without internet.
+     */
+    @OptIn(ExperimentalTime::class)
+    private fun exportMail() {
+        if (_state.value.transfer is TransferStatus.Running) return
+        val accounts = _state.value.accounts
+        mutate { it.copy(transfer = TransferStatus.Running(importing = false, messages = 0)) }
+        scope.launch {
+            val result = withContext(io) {
+                runCatching {
+                    val now = Platform.now()
+                    val date = Instant.fromEpochMilliseconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).date
+                    var summary = TransferSummary(0, 0, 0)
+                    val generator = "Mailtice ${Platform.appVersion.ifBlank { "dev" }} (${Platform.osLabel})"
+                    val location = TransferFiles.export(downloadRoot(), "mailtice-$date.${TransferFormat.EXTENSION}") { sink ->
+                        summary = MailExporter(repo).write(sink, accounts, generator, now) { done ->
+                            mutate { s -> s.copy(transfer = TransferStatus.Running(importing = false, messages = done)) }
+                        }
+                    }
+                    location to summary
+                }
+            }
+            result.onSuccess { (location, summary) ->
+                AppLog.log("Transfer: exported ${summary.accounts} accounts, ${summary.messages} messages, ${summary.files} files")
+                Platform.revealDownload(location)
+                mutate { it.copy(transfer = TransferStatus.Done(importing = false, summary = summary, location = location)) }
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                AppLog.log("Transfer: export failed: ${e::class.simpleName}")
+                mutate { it.copy(transfer = TransferStatus.Failed(importing = false, error = TransferError.Failed)) }
+            }
+        }
+    }
+
+    /**
+     * Reads a transfer file from the app on another computer or from the browser extension. New
+     * accounts arrive as read-only copies; see [MailImporter].
+     */
+    private fun importMail(title: String) {
+        if (_state.value.transfer is TransferStatus.Running) return
+        scope.launch {
+            val path = TransferFiles.pick(title) ?: return@launch
+            mutate { it.copy(transfer = TransferStatus.Running(importing = true, messages = 0)) }
+            val result = withContext(io) {
+                runCatching {
+                    val used = _state.value.accounts.map { it.color }.toMutableSet()
+                    val importer = MailImporter(repo, newId = ::newId, pickColor = { importColor(it, used) })
+                    TransferFiles.open(path).use { source ->
+                        importer.read(source) { done ->
+                            mutate { s -> s.copy(transfer = TransferStatus.Running(importing = true, messages = done)) }
+                        }
+                    }
+                }
+            }
+            result.onSuccess { summary ->
+                AppLog.log("Transfer: imported ${summary.accounts} accounts (${summary.newAccounts} new), ${summary.messages} messages")
+                mutate { it.copy(transfer = TransferStatus.Done(importing = true, summary = summary)) }
+                refreshDigests()
+                refreshStorage()
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                AppLog.log("Transfer: import failed: ${e::class.simpleName}")
+                val error = (e as? TransferException)?.error ?: TransferError.Failed
+                mutate { it.copy(transfer = TransferStatus.Failed(importing = true, error = error)) }
+            }
+        }
+    }
+
+    /** The file's colour for a new account when it is free here, else the next free one; [used] grows as accounts are added. */
+    private fun importColor(preferred: String, used: MutableSet<AccountColor>): AccountColor {
+        val color = AccountColor.entries.firstOrNull { it.name == preferred && it !in used }
+            ?: AccountColor.entries.firstOrNull { it !in used }
+            ?: AccountColor.entries[used.size % AccountColor.entries.size]
+        used += color
+        return color
     }
 
     // ---- plumbing ---------------------------------------------------------------------------

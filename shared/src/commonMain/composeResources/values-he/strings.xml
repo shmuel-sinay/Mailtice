@@ -596,4 +596,6 @@
     <string name="oauth_keys_save">שמירה</string>
     <string name="oauth_keys_help">איך יוצרים אותם</string>
     <string name="message_oauth_keys_saved">מפתחות ההתחברות נשמרו</string>
+    <string name="add_gmail_app_password_hint">הזן את כתובת ה-Gmail וסיסמת אפליקציה, לא את הסיסמה הרגילה. סיסמת אפליקציה דורשת אימות דו-שלבי בחשבון Google. יוצרים אותה בדף של Google ומדביקים כאן את 16 האותיות.</string>
+    <string name="add_gmail_app_password_open">יצירת סיסמת אפליקציה</string>
 </resources>

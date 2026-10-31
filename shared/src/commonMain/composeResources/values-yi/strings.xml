@@ -556,4 +556,6 @@
     <string name="oauth_keys_save">אפהיטן</string>
     <string name="oauth_keys_help">ווי אזוי זיי צו שאפן</string>
     <string name="message_oauth_keys_saved">די איינלאגירונג שליסלען זענען אפגעהיטן</string>
+    <string name="add_gmail_app_password_hint">שרייבט אריין אייער Gmail אדרעס און אן אפליקאציע פאסווארט - נישט אייער געווענליכע פאסווארט. אן אפליקאציע פאסווארט פאדערט צוויי-שריטיקע באשטעטיגונג אויפן Google חשבון; שאפט איינע אויף Google'ס בלאט און לייגט דא אריין די 16 אותיות.</string>
+    <string name="add_gmail_app_password_open">שאפן אן אפליקאציע פאסווארט</string>
 </resources>

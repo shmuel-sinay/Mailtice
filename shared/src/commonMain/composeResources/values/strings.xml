@@ -593,4 +593,6 @@
     <string name="oauth_keys_save">Save</string>
     <string name="oauth_keys_help">How to create them</string>
     <string name="message_oauth_keys_saved">Sign-in keys saved</string>
+    <string name="add_gmail_app_password_hint">Enter your Gmail address and an app password - not your regular password. An app password needs 2-Step Verification on the Google account; create one on Google's page and paste the 16 letters here.</string>
+    <string name="add_gmail_app_password_open">Create an app password</string>
 </resources>

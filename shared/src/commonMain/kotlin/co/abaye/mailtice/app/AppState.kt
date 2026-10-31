@@ -67,6 +67,8 @@ data class ImapForm(
     val reconnectId: String? = null,
     val busy: Boolean = false,
     val error: ImapLoginException.Reason? = null,
+    /** Gmail with an app password (a build without Google sign-in): the form says how to make one. */
+    val gmail: Boolean = false,
 )
 
 @Immutable

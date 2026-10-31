@@ -824,9 +824,13 @@ class AppViewModel(
      */
     private fun availableProviders(): List<ProviderKind> = ProviderKind.entries.filter { kind ->
         if (DemoMode.enabled) return@filter true
+        // Without Google sign-in Gmail is still offered: it connects with an app password instead.
+        if (kind == ProviderKind.Gmail) return@filter true
         val provider = OAuthProvider.of(kind) ?: return@filter true
         provider.clientId.isNotBlank() && authorizer.supports(provider)
     }
+
+    private fun googleSignIn(): Boolean = OAuthProvider.Google.clientId.isNotBlank() && authorizer.supports(OAuthProvider.Google)
 
     // ---- navigation -------------------------------------------------------------------------
 
@@ -857,6 +861,11 @@ class AppViewModel(
     private fun chooseProvider(kind: ProviderKind) {
         if (kind == ProviderKind.Imap) {
             mutate { it.copy(addAccount = AddAccountStep.Imap(ImapForm())) }
+            return
+        }
+        // No Google sign-in in this build (and no keys in Settings): Gmail over IMAP with an app password.
+        if (kind == ProviderKind.Gmail && !DemoMode.enabled && !googleSignIn()) {
+            mutate { it.copy(addAccount = AddAccountStep.Imap(ImapForm(host = "imap.gmail.com", gmail = true))) }
             return
         }
         // Several browser profiles: ask which one first (demo too, so the picker can be seen).

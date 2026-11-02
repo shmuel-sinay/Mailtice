@@ -50,3 +50,15 @@ assert.equal(result.messages, COUNT - 1); // m3 was deleted meanwhile
 assert.equal(result.files, (COUNT - 1) * 2); // the inline image and a.pdf; big.pdf is over the limit
 writeFileSync(process.argv[2], Buffer.concat(chunks));
 console.log("export ok", result);
+
+// The same mailbox through batch requests: the same file.
+const batched = { ...client, messages: async (ids) => Promise.all(ids.map((id) => client.message(id))) };
+const chunks2 = [];
+const result2 = await exportMailbox({
+  client: batched,
+  zip: new ZipWriter(async (bytes) => chunks2.push(Buffer.from(bytes))),
+  options: { days: 30, includeSpamTrash: false, attachmentLimit: 10 * 1024 * 1024 },
+  generator: "test",
+});
+assert.deepEqual(result2, result);
+console.log("batched export ok");

@@ -164,3 +164,37 @@ export class ZipWriter {
     );
   }
 }
+
+/**
+ * Gathers small writes into large ones: a zip is many small pieces (headers, chunks of messages),
+ * and every separate write to a file on disk costs far more than its bytes.
+ */
+export function bufferedWrite(write, size = 8 * 1024 * 1024) {
+  let parts = [];
+  let length = 0;
+  const flush = async () => {
+    if (!length) return;
+    const joined = new Uint8Array(length);
+    let at = 0;
+    for (const p of parts) {
+      joined.set(p, at);
+      at += p.length;
+    }
+    parts = [];
+    length = 0;
+    await write(joined);
+  };
+  return {
+    write: async (bytes) => {
+      if (bytes.length >= size) {
+        await flush();
+        await write(bytes);
+        return;
+      }
+      parts.push(bytes);
+      length += bytes.length;
+      if (length >= size) await flush();
+    },
+    flush,
+  };
+}

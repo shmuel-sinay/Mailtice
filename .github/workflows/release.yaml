@@ -344,7 +344,9 @@ jobs:
           node-version: '22'
 
       - name: Test the exporter
-        run: node extension/test/export.test.mjs "$RUNNER_TEMP/export-test.zip"
+        run: |
+          node extension/test/batch.test.mjs
+          node extension/test/export.test.mjs "$RUNNER_TEMP/export-test.zip"
 
       - name: Pack
         run: bash extension/build.sh "$RELEASE_VERSION"

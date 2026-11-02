@@ -210,7 +210,9 @@
   .added-list code { font-size: 13px; padding: 1px 5px; border-radius: 5px; background: rgba(45, 83, 208, 0.08); }
   .added-credit { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(45, 83, 208, 0.12); }
 
-  .downloads-count { display: inline-flex; align-items: baseline; gap: 8px; margin-top: 14px; padding: 8px 20px;
+  .downloads-row { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  .downloads-row[hidden] { display: none; }
+  .downloads-count { display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 20px;
     border-radius: 999px; background: var(--card); border: 1px solid var(--card-border); box-shadow: var(--shadow-sm); }
   .downloads-count[hidden] { display: none; }
   .dc-number { font-size: 26px; font-weight: 800; color: var(--brand-700); font-variant-numeric: tabular-nums; }
@@ -247,9 +249,15 @@
       <h1>Mailtice</h1>
       <p class="tagline">כל תיבות הדואר שלך במקום אחד - עם התראה על כל מייל חדש</p>
       <p class="tagline edition">מהדורה עם העברת דואר למחשב ללא אינטרנט ותוסף דפדפן</p>
-      <div class="downloads-count" id="downloadsCount" hidden>
-        <span class="dc-number" id="downloadsNumber"></span>
-        <span class="dc-label">הורדות</span>
+      <div class="downloads-row" id="downloadsCount" hidden>
+        <div class="downloads-count">
+          <span class="dc-number" id="appDownloads"></span>
+          <span class="dc-label">הורדות של התוכנה</span>
+        </div>
+        <div class="downloads-count">
+          <span class="dc-number" id="extDownloads"></span>
+          <span class="dc-label">הורדות של התוסף</span>
+        </div>
       </div>
     </header>
 
@@ -394,17 +402,24 @@
   }
   const fmtCount = (n) => n.toLocaleString("he-IL");
 
-  // Every release, page by page: the total covers all versions and all platforms.
-  async function totalDownloads() {
-    let total = 0;
+  // The browser extension apart from the app, every version together, for the counters at the top.
+  const EXTENSION = /^mailtice-extension.*\.zip$/i;
+  async function splitDownloads() {
+    let app = 0, ext = 0;
     for (let page = 1; page <= 10; page++) {
       const res = await fetch(`${ALL_RELEASES_API}&page=${page}`, { headers: { Accept: "application/vnd.github+json" } });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const releases = await res.json();
-      for (const r of releases) if (!r.draft) total += countDownloads(r.assets);
+      for (const r of releases) {
+        if (r.draft) continue;
+        for (const a of r.assets || []) {
+          if (!COUNTED.test(a.name)) continue;
+          if (EXTENSION.test(a.name)) ext += a.download_count || 0; else app += a.download_count || 0;
+        }
+      }
       if (releases.length < 100) break;
     }
-    return total;
+    return { app, ext };
   }
 
   const $ = (id) => document.getElementById(id);
@@ -533,10 +548,11 @@
       parts.push(`${fmtCount(countDownloads(data.assets))} הורדות לגרסה זו`);
       $("releaseMeta").textContent = parts.join(" · ");
       // A second request, so the page does not wait on it; without it the line simply stays shorter.
-      totalDownloads()
-        .then(total => {
-          $("releaseMeta").textContent = [...parts, `${fmtCount(total)} הורדות בסך הכל`].join(" · ");
-          $("downloadsNumber").textContent = fmtCount(total);
+      splitDownloads()
+        .then(({ app, ext }) => {
+          $("releaseMeta").textContent = [...parts, `${fmtCount(app + ext)} הורדות בסך הכל`].join(" · ");
+          $("appDownloads").textContent = fmtCount(app);
+          $("extDownloads").textContent = fmtCount(ext);
           $("downloadsCount").hidden = false;
         })
         .catch(err => console.error(err));

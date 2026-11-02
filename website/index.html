@@ -210,6 +210,13 @@
   .added-list code { font-size: 13px; padding: 1px 5px; border-radius: 5px; background: rgba(45, 83, 208, 0.08); }
   .added-credit { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(45, 83, 208, 0.12); }
 
+  .downloads-count { display: inline-flex; align-items: baseline; gap: 8px; margin-top: 14px; padding: 8px 20px;
+    border-radius: 999px; background: var(--card); border: 1px solid var(--card-border); box-shadow: var(--shadow-sm); }
+  .downloads-count[hidden] { display: none; }
+  .dc-number { font-size: 26px; font-weight: 800; color: var(--brand-700); font-variant-numeric: tabular-nums; }
+  .dc-label { font-size: 15px; font-weight: 600; color: var(--ink-soft); }
+  @media (prefers-color-scheme: dark) { .dc-number { color: var(--brand-300); } }
+
   /* Credit + footer */
   .credit { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px 0 4px; }
   .avatar { width: 54px; height: 54px; border-radius: 50%; border: 2px solid var(--brand-300); box-shadow: var(--shadow-sm); }
@@ -240,6 +247,10 @@
       <h1>Mailtice</h1>
       <p class="tagline">כל תיבות הדואר שלך במקום אחד - עם התראה על כל מייל חדש</p>
       <p class="tagline edition">מהדורה עם העברת דואר למחשב ללא אינטרנט ותוסף דפדפן</p>
+      <div class="downloads-count" id="downloadsCount" hidden>
+        <span class="dc-number" id="downloadsNumber"></span>
+        <span class="dc-label">הורדות</span>
+      </div>
     </header>
 
     <!-- Download -->
@@ -362,7 +373,6 @@
     <footer>
       <a href="privacy.html">מדיניות פרטיות</a> ·
       <a href="terms.html">תנאי שימוש</a> ·
-      <a href="stats.html">סטטיסטיקה</a> ·
       <a href="https://github.com/shmuel-sinay/Mailtice" target="_blank" rel="noopener">הריפו של המהדורה</a> ·
       <a href="https://github.com/abaye123/Mailtice" target="_blank" rel="noopener">הריפו המקורי</a>
     </footer>
@@ -524,7 +534,11 @@
       $("releaseMeta").textContent = parts.join(" · ");
       // A second request, so the page does not wait on it; without it the line simply stays shorter.
       totalDownloads()
-        .then(total => { $("releaseMeta").textContent = [...parts, `${fmtCount(total)} הורדות בסך הכל`].join(" · "); })
+        .then(total => {
+          $("releaseMeta").textContent = [...parts, `${fmtCount(total)} הורדות בסך הכל`].join(" · ");
+          $("downloadsNumber").textContent = fmtCount(total);
+          $("downloadsCount").hidden = false;
+        })
         .catch(err => console.error(err));
 
       // Pick for the visitor's own system, and fall back to Windows when the user agent says
@@ -621,7 +635,5 @@
   loadRelease();
   loadHelp();
 </script>
-<!-- Visits, counted without cookies or personal data (GoatCounter); see privacy.html. -->
-<script data-goatcounter="https://mailtice-shmuel.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>

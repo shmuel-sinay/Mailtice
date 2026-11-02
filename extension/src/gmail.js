@@ -225,10 +225,14 @@ export class GmailClient {
         await this.auth.token(true);
         continue;
       }
-      const limited = response.status === 429 || response.status >= 500 || (response.status === 403 && /rateLimit|userRateLimit/i.test(text));
-      if (limited && attempt < 7) {
+      // Rate limits and quota: Google counts units per user per minute, so a refusal can take up
+      // to a minute to clear. Wait it out rather than lose the export (another export of the same
+      // account at the same time shares the quota).
+      const limited = response.status === 429 || response.status >= 500 ||
+        (response.status === 403 && /rateLimit|userRateLimit|quota/i.test(text));
+      if (limited && attempt < 12) {
         await sleep(wait);
-        wait = Math.min(wait * 2, 32000);
+        wait = Math.min(wait * 2, 65000);
         continue;
       }
       throw new ApiError(response.status, text.slice(0, 300));

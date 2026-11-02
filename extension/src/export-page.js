@@ -115,6 +115,7 @@ async function start() {
     return; // the save dialog was closed
   }
   const attachments = Number($("attachments").value);
+  chrome.storage.local.set({ choices: { range: $("range").value, attachments: $("attachments").value, spamTrash: $("spamTrash").checked } });
   const options = {
     days: Number($("range").value),
     includeSpamTrash: $("spamTrash").checked,
@@ -175,3 +176,11 @@ clientId().then((id) => {
   if (!id) $("setupBox").open = true;
 });
 resumeSignIn();
+
+// The choices made last time.
+chrome.storage.local.get("choices").then(({ choices }) => {
+  if (!choices) return;
+  if (choices.range) $("range").value = choices.range;
+  if (choices.attachments) $("attachments").value = choices.attachments;
+  $("spamTrash").checked = Boolean(choices.spamTrash);
+});

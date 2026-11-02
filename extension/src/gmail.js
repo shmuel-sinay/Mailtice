@@ -33,7 +33,7 @@ export class GoogleAuth {
   }
 
   async token(renew = false) {
-    if (this.accessToken && !renew) return this.accessToken;
+    if (this.accessToken && !renew && !(this.expiresAt && Date.now() > this.expiresAt)) return this.accessToken;
     // Several requests can find the token expired at once: one renewal serves them all.
     if (!this.renewing) {
       this.renewing = (async () => {
@@ -73,6 +73,39 @@ export class GoogleAuth {
     const token = fragment.get("access_token");
     if (!token) throw new AuthError("no_token");
     this.accessToken = token;
+    const seconds = Number(fragment.get("expires_in") || "3600");
+    this.expiresAt = Date.now() + (seconds - 120) * 1000;
+    // Kept until the browser closes, so opening the page again needs no sign-in at all.
+    try {
+      await chrome.storage.session?.set({ token: { value: token, expiresAt: this.expiresAt, email: this.email } });
+    } catch {
+      // Older browsers without session storage: the quiet sign-in below still spares the dialog.
+    }
+  }
+
+  /**
+   * Signs the remembered account in without a window: the token kept for this browser session,
+   * else Google's quiet sign-in, which works while the account is signed in to the browser and the
+   * consent was given once. False when only the full sign-in will do.
+   */
+  async resume(email) {
+    this.email = email;
+    try {
+      const { token } = (await chrome.storage.session?.get("token")) || {};
+      if (token && token.email === email && token.expiresAt > Date.now()) {
+        this.accessToken = token.value;
+        this.expiresAt = token.expiresAt;
+        return true;
+      }
+    } catch {
+      // No session storage: try the quiet sign-in.
+    }
+    try {
+      await this.flow(false, "none");
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -83,7 +116,30 @@ export class ApiError extends Error {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Waits on a worker's timer where there is one (see timer-worker.js), else on a plain one. */
+const sleep = (() => {
+  let worker = null;
+  try {
+    if (typeof Worker !== "undefined" && typeof chrome !== "undefined" && chrome.runtime?.getURL) {
+      worker = new Worker(chrome.runtime.getURL("src/timer-worker.js"));
+    }
+  } catch {
+    worker = null;
+  }
+  if (!worker) return (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const waiting = new Map();
+  let next = 0;
+  worker.onmessage = (event) => {
+    const resolve = waiting.get(event.data);
+    waiting.delete(event.data);
+    if (resolve) resolve();
+  };
+  return (ms) => new Promise((resolve) => {
+    const id = next++;
+    waiting.set(id, resolve);
+    worker.postMessage({ id, ms });
+  });
+})();
 
 /**
  * Gmail allows 250 quota units per user per second; a message or an attachment read costs 5.
@@ -97,16 +153,21 @@ export class QuotaLimiter {
     this.last = Date.now();
   }
 
+  /**
+   * Waits until [units] may be spent. A request larger than a second's worth (a batch of 50 is
+   * 250 units) goes once the bucket is full and leaves it in debt, which the next ones wait out.
+   */
   async take(units) {
+    const need = Math.min(units, this.rate);
     for (;;) {
       const now = Date.now();
       this.tokens = Math.min(this.rate, this.tokens + ((now - this.last) / 1000) * this.rate);
       this.last = now;
-      if (this.tokens >= units) {
+      if (this.tokens >= need) {
         this.tokens -= units;
         return;
       }
-      await sleep(Math.ceil(((units - this.tokens) / this.rate) * 1000));
+      await sleep(Math.ceil(((need - this.tokens) / this.rate) * 1000));
     }
   }
 }

@@ -33,13 +33,18 @@ export class GoogleAuth {
   }
 
   async token(renew = false) {
-    if (!this.accessToken || renew) {
-      try {
-        await this.flow(false, "none");
-      } catch {
-        await this.flow(true, "");
-      }
+    if (this.accessToken && !renew) return this.accessToken;
+    // Several requests can find the token expired at once: one renewal serves them all.
+    if (!this.renewing) {
+      this.renewing = (async () => {
+        try {
+          await this.flow(false, "none");
+        } catch {
+          await this.flow(true, "");
+        }
+      })().finally(() => { this.renewing = null; });
     }
+    await this.renewing;
     return this.accessToken;
   }
 
@@ -80,9 +85,57 @@ export class ApiError extends Error {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Gmail allows 250 quota units per user per second; a message or an attachment read costs 5.
+ * Every request takes its units from here first, so the export runs right at the limit instead
+ * of hitting it and being slowed down by 429 answers.
+ */
+export class QuotaLimiter {
+  constructor(unitsPerSecond = 230) {
+    this.rate = unitsPerSecond;
+    this.tokens = unitsPerSecond;
+    this.last = Date.now();
+  }
+
+  async take(units) {
+    for (;;) {
+      const now = Date.now();
+      this.tokens = Math.min(this.rate, this.tokens + ((now - this.last) / 1000) * this.rate);
+      this.last = now;
+      if (this.tokens >= units) {
+        this.tokens -= units;
+        return;
+      }
+      await sleep(Math.ceil(((units - this.tokens) / this.rate) * 1000));
+    }
+  }
+}
+
+/** Messages per batch request; Google suggests at most 50. */
+export const BATCH_SIZE = 50;
+const MESSAGE_UNITS = 5;
+
+/**
+ * The parts of a Gmail batch answer, by the Content-ID each request was sent with:
+ * { status, body } with the body as text (JSON for a message).
+ */
+export function parseBatch(text, boundary) {
+  const out = new Map();
+  for (const part of text.split(`--${boundary}`)) {
+    const id = part.match(/Content-ID:\s*<response-([^>\s]+)>/i);
+    const status = part.match(/HTTP\/1\.1 (\d{3})/);
+    if (!id || !status) continue;
+    const after = part.slice(status.index);
+    const gap = after.search(/\r?\n\r?\n/);
+    out.set(id[1], { status: Number(status[1]), body: gap >= 0 ? after.slice(gap).trim() : "" });
+  }
+  return out;
+}
+
 export class GmailClient {
-  constructor(auth) {
+  constructor(auth, limiter = new QuotaLimiter()) {
     this.auth = auth;
+    this.limiter = limiter;
   }
 
   /**
@@ -134,7 +187,8 @@ export class GmailClient {
     const ids = [];
     let pageToken;
     do {
-      const params = { maxResults: "500", includeSpamTrash: String(includeSpamTrash) };
+      // Only the ids: the listing is the whole mailbox, page by page, so every byte saved counts.
+      const params = { maxResults: "500", includeSpamTrash: String(includeSpamTrash), fields: "messages/id,nextPageToken" };
       if (q) params.q = q;
       if (pageToken) params.pageToken = pageToken;
       const page = await this.get("/messages", params);
@@ -145,8 +199,59 @@ export class GmailClient {
     return ids;
   }
 
+  /**
+   * Up to [BATCH_SIZE] messages in full format with one HTTP request, in the order of `ids`; null
+   * for one deleted meanwhile. One that Google answered with a rate limit or a server error is
+   * fetched again on its own.
+   */
+  async messages(ids) {
+    await this.limiter.take(ids.length * MESSAGE_UNITS);
+    const boundary = `mailtice_${Math.random().toString(36).slice(2)}`;
+    const body = ids.map((id, i) =>
+      `--${boundary}\r\nContent-Type: application/http\r\nContent-ID: <m${i}>\r\n\r\n` +
+      `GET /gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full\r\n\r\n`).join("") + `--${boundary}--`;
+    let parts = null;
+    for (let attempt = 0, wait = 1000; attempt < 6 && !parts; attempt++) {
+      try {
+        const response = await fetch("https://gmail.googleapis.com/batch/gmail/v1", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${await this.auth.token()}`,
+            "Content-Type": `multipart/mixed; boundary=${boundary}`,
+          },
+          body,
+        });
+        if (response.status === 401) await this.auth.token(true);
+        if (response.ok) {
+          const answer = (response.headers.get("Content-Type") || "").match(/boundary=([^;\s]+)/);
+          if (answer) parts = parseBatch(await response.text(), answer[1].replace(/"/g, ""));
+        }
+      } catch {
+        // A dropped connection: the same wait as a rate limit, then again.
+      }
+      if (!parts) {
+        await sleep(wait);
+        wait = Math.min(wait * 2, 32000);
+      }
+    }
+    if (!parts) return Promise.all(ids.map((id) => this.message(id)));
+    return Promise.all(ids.map(async (id, i) => {
+      const part = parts.get(`m${i}`);
+      if (part && part.status === 200) {
+        try {
+          return JSON.parse(part.body);
+        } catch {
+          // A part cut short: read this one on its own.
+        }
+      }
+      if (part && part.status === 404) return null;
+      return this.message(id);
+    }));
+  }
+
   /** Full format: headers, labels and the MIME tree; null when it was deleted meanwhile. */
   async message(id) {
+    await this.limiter.take(MESSAGE_UNITS);
     try {
       return await this.get(`/messages/${encodeURIComponent(id)}`, { format: "full" });
     } catch (e) {
@@ -156,6 +261,7 @@ export class GmailClient {
   }
 
   async attachment(messageId, attachmentId) {
+    await this.limiter.take(MESSAGE_UNITS);
     const body = await this.get(`/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`);
     return body.data || "";
   }

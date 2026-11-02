@@ -77,7 +77,9 @@ jobs:
           node-version: '22'
       # The exporter against a fake Gmail; the file it writes is read back the way the app reads it.
       - name: Test the exporter
-        run: node extension/test/export.test.mjs "$RUNNER_TEMP/export-test.zip"
+        run: |
+          node extension/test/batch.test.mjs
+          node extension/test/export.test.mjs "$RUNNER_TEMP/export-test.zip"
       - name: Read it as the app does
         run: |
           mkdir -p "$RUNNER_TEMP/java"

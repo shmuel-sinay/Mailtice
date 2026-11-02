@@ -2,7 +2,7 @@ import { DEFAULT_CLIENT_ID } from "./config.js";
 import { exportMailbox } from "./exporter.js";
 import { AuthError, GmailClient, GoogleAuth, redirectUrl } from "./gmail.js";
 import { localize, t } from "./i18n.js";
-import { ZipWriter } from "./zip.js";
+import { ZipWriter, bufferedWrite } from "./zip.js";
 
 localize();
 
@@ -107,7 +107,8 @@ async function start() {
   $("cancel").hidden = false;
   setStatus(t("listing", 0), { busy: true });
   try {
-    const zip = new ZipWriter(output.write);
+    const buffered = bufferedWrite(output.write);
+    const zip = new ZipWriter(buffered.write);
     const result = await exportMailbox({
       client: new GmailClient(auth),
       zip,
@@ -119,6 +120,7 @@ async function start() {
         else setStatus(t("progress", done, total, files), { busy: true, progress: total ? done / total : 1 });
       },
     });
+    await buffered.flush();
     await output.finish();
     setStatus(t("done", result.messages, result.email, output.name), { progress: 1 });
   } catch (e) {

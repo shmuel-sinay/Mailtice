@@ -9,12 +9,14 @@
 // Messages are stored in Gmail's own format and the app reads them with the code its Gmail sync
 // uses, so a message looks the same whichever way it arrived.
 
-import { base64UrlDecode } from "./gmail.js";
+import { BATCH_SIZE, base64UrlDecode } from "./gmail.js";
 
 export const FORMAT = "mailtice-transfer";
 export const VERSION = 1;
 export const CHUNK = 200;
-const PARALLEL = 5;
+/** Batch requests in flight at once; the quota limiter in gmail.js sets the real pace. */
+const BATCHES_IN_FLIGHT = 3;
+const ATTACHMENT_PARALLEL = 8;
 
 /**
  * The parts the app counts as attachments, in its order: anything with a file name, and images
@@ -54,6 +56,15 @@ async function pool(items, limit, task, signal) {
   return results;
 }
 
+/** A chunk's messages in order, by batch requests where the client has them; deleted ones dropped. */
+async function fetchChunk(client, ids, signal) {
+  if (!client.messages) return (await pool(ids, 5, (id) => client.message(id), signal)).filter(Boolean);
+  const batches = [];
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) batches.push(ids.slice(i, i + BATCH_SIZE));
+  const results = await pool(batches, BATCHES_IN_FLIGHT, (batch) => client.messages(batch), signal);
+  return results.flat().filter(Boolean);
+}
+
 /**
  * Exports the signed-in mailbox. `options`: days (0 = everything), includeSpamTrash, and
  * attachmentLimit in bytes (0 = no files, Infinity = all). `onProgress({phase, done, total, files})`.
@@ -78,9 +89,13 @@ export async function exportMailbox({ client, zip, options, generator, onProgres
   let done = 0;
   let files = 0;
   let n = 0;
-  for (let start = 0, chunk = 0; start < ids.length; start += CHUNK, chunk++) {
-    const batch = ids.slice(start, start + CHUNK);
-    const messages = (await pool(batch, PARALLEL, (id) => client.message(id), signal)).filter(Boolean);
+  const chunks = [];
+  for (let start = 0; start < ids.length; start += CHUNK) chunks.push(ids.slice(start, start + CHUNK));
+  // The next chunk downloads while this one's attachments do, so the connection never sits idle.
+  let next = chunks.length ? fetchChunk(client, chunks[0], signal) : null;
+  for (let chunk = 0; chunk < chunks.length; chunk++) {
+    const messages = await next;
+    next = chunk + 1 < chunks.length ? fetchChunk(client, chunks[chunk + 1], signal) : null;
     const lines = [];
     const wanted = [];
     for (const message of messages) {
@@ -97,30 +112,28 @@ export async function exportMailbox({ client, zip, options, generator, onProgres
       lines.push(JSON.stringify(indexes.length ? { n: number, files: indexes, gmail: message } : { n: number, gmail: message }));
     }
     await zip.put(`accounts/a1/messages/${pad(chunk)}.jsonl`, lines.join("\n"));
-    done += batch.length;
+    done += chunks[chunk].length;
     onProgress({ phase: "messages", done, total: ids.length, files });
 
-    // After the chunk that lists them, a few at a time; one that fails is left out, not fatal.
-    for (let i = 0; i < wanted.length; i += PARALLEL) {
-      if (signal && signal.aborted) throw new DOMException("Cancelled", "AbortError");
-      const group = wanted.slice(i, i + PARALLEL);
-      const data = await Promise.all(
-        group.map(async ({ messageId, part }) => {
-          try {
-            const raw = part.body?.data ?? (part.body?.attachmentId ? await client.attachment(messageId, part.body.attachmentId) : "");
-            return base64UrlDecode(raw);
-          } catch {
-            return null;
-          }
-        }),
-      );
-      for (let k = 0; k < group.length; k++) {
-        if (!data[k]) continue;
-        await zip.put(`accounts/a1/files/${group[k].number}/${group[k].index}`, data[k], false);
-        files++;
+    // After the chunk that lists them, several at a time, each written as soon as it arrives; one
+    // that fails is left out, not fatal.
+    let writing = Promise.resolve();
+    await pool(wanted, ATTACHMENT_PARALLEL, async ({ number, index, messageId, part }) => {
+      let bytes = null;
+      try {
+        const raw = part.body?.data ?? (part.body?.attachmentId ? await client.attachment(messageId, part.body.attachmentId) : "");
+        bytes = base64UrlDecode(raw);
+      } catch {
+        bytes = null;
       }
-      onProgress({ phase: "messages", done, total: ids.length, files });
-    }
+      if (!bytes) return;
+      writing = writing.then(() => zip.put(`accounts/a1/files/${number}/${index}`, bytes, false)).then(() => {
+        files++;
+        onProgress({ phase: "messages", done, total: ids.length, files });
+      });
+      await writing;
+    }, signal);
+    await writing;
   }
   await zip.close();
   return { email, messages: n, files };

@@ -74,6 +74,22 @@ function batchAnswer(boundary, parts) {
   assert.ok(took >= 1500, `too fast: ${took} ms`);
 }
 
+// Google's per-minute quota refusal is waited out, not the end of the export.
+{
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    if (calls === 1) {
+      return new Response(JSON.stringify({ error: { code: 403, message: "Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user'" } }), { status: 403 });
+    }
+    return new Response(JSON.stringify({ id: "q1" }), { headers: { "Content-Type": "application/json" } });
+  };
+  const client = new GmailClient({ token: async () => "t" }, new QuotaLimiter(100000));
+  const got = await client.message("q1");
+  assert.equal(got.id, "q1");
+  assert.equal(calls, 2);
+}
+
 // Buffered writes: the same bytes, in far fewer writes.
 {
   const writes = [];

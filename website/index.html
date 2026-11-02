@@ -202,6 +202,14 @@
   .topic > summary:hover { background: rgba(45, 83, 208, 0.06); }
   .topic-body { padding: 2px 18px 14px; font-size: 14.5px; }
 
+  /* This edition's additions */
+  .tagline.edition { font-size: 14.5px; font-weight: 600; color: var(--brand-700); margin-top: 4px; }
+  @media (prefers-color-scheme: dark) { .tagline.edition { color: var(--brand-300); } }
+  .added-list { margin: 10px 0 4px; padding-inline-start: 20px; }
+  .added-list li { margin: 8px 0; line-height: 1.6; }
+  .added-list code { font-size: 13px; padding: 1px 5px; border-radius: 5px; background: rgba(45, 83, 208, 0.08); }
+  .added-credit { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(45, 83, 208, 0.12); }
+
   /* Credit + footer */
   .credit { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px 0 4px; }
   .avatar { width: 54px; height: 54px; border-radius: 50%; border: 2px solid var(--brand-300); box-shadow: var(--shadow-sm); }
@@ -231,6 +239,7 @@
       <img class="logo" src="AppIcon.png" alt="Mailtice" />
       <h1>Mailtice</h1>
       <p class="tagline">כל תיבות הדואר שלך במקום אחד - עם התראה על כל מייל חדש</p>
+      <p class="tagline edition">מהדורה עם העברת דואר למחשב ללא אינטרנט ותוסף דפדפן</p>
     </header>
 
     <!-- Download -->
@@ -243,7 +252,7 @@
         <span class="meta" id="releaseMeta"></span>
       </div>
 
-      <a class="btn" id="downloadBtn" href="https://github.com/abaye123/Mailtice/releases/latest" aria-disabled="true">
+      <a class="btn" id="downloadBtn" href="https://github.com/shmuel-sinay/Mailtice/releases/latest" aria-disabled="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M5 21h14" />
         </svg>
@@ -252,7 +261,7 @@
 
       <p class="file-meta" id="fileMeta"></p>
 
-      <a class="btn btn-ghost" id="allFilesBtn" href="https://github.com/abaye123/Mailtice/releases/latest" target="_blank" rel="noopener">
+      <a class="btn btn-ghost" id="allFilesBtn" href="https://github.com/shmuel-sinay/Mailtice/releases/latest" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" />
         </svg>
@@ -260,10 +269,42 @@
       </a>
 
       <p class="sub">
-        <a href="https://github.com/abaye123/Mailtice/releases" target="_blank" rel="noopener">גרסאות קודמות</a>
+        <a href="https://github.com/shmuel-sinay/Mailtice/releases" target="_blank" rel="noopener">גרסאות קודמות</a>
         <span id="portableItem" hidden> · <a id="portableLink" href="#">גרסה ניידת לווינדוס (zip)</a></span>
+        <span id="extensionItem" hidden> · <a id="extensionLink" href="#" title="ייצוא Gmail לקובץ עבור מחשב ללא אינטרנט">תוסף דפדפן לייצוא Gmail</a></span>
       </p>
       <p class="req">ווינדוס 10 ומעלה · מק־OS על Apple Silicon או Intel · לינוקס מבוסס דביאן · אנדרואיד 8 ומעלה</p>
+    </section>
+
+    <!-- What this edition adds -->
+    <section class="card about added">
+      <h2 class="section-title">מה נוסף במהדורה הזו</h2>
+      <p>
+        המהדורה הזו מבוססת על Mailtice, ומוסיפה לו דרך להעביר דואר <strong>למחשב שלא מתחבר לאינטרנט</strong>:
+        מייצאים את המיילים לקובץ אחד במחשב המחובר, מעבירים אותו בדיסק און קי, ומייבאים אותו במחשב השני.
+      </p>
+      <ul class="added-list">
+        <li><strong>ייצוא לקובץ.</strong> בהגדרות ← "מחשב ללא אינטרנט" ← ייצוא: כל הדואר השמור מכל החשבונות, עם התיקיות,
+          התוויות, הסימונים, תוכן ההודעות והקבצים המצורפים, בקובץ <code>.mailtice</code> אחד.</li>
+        <li><strong>ייבוא במחשב ללא אינטרנט.</strong> חשבון שלא מחובר במחשב היעד נוסף כעותק לקריאה עם הסימון "מקובץ":
+          קוראים, מחפשים, פותחים קבצים מצורפים ומסמנים כנקרא, והוא אף פעם לא מנסה להתחבר לרשת. ייבוא של קובץ חדש יותר מעדכן אותו,
+          וכפתור "התחבר" הופך אותו לחשבון רגיל אם המחשב יתחבר פעם.</li>
+        <li><strong>תוסף דפדפן (Chrome, Edge).</strong> במחשב מחובר שאין בו את התוכנה: מתחברים ל-Gmail בהרשאת קריאה בלבד
+          ומייצאים לאותו קובץ, ישירות מהדפדפן. אפשר לבחור טווח תאריכים וגודל קבצים מצורפים.</li>
+        <li><strong>Gmail עם סיסמת אפליקציה.</strong> אפשר להתחבר ל-Gmail גם בלי פרויקט ב-Google Cloud, עם סיסמת אפליקציה.</li>
+        <li><strong>מפתחות התחברות בהגדרות.</strong> מי שבונה את התוכנה בעצמו יכול להזין את מפתחות ה-OAuth של Google ו-Microsoft ישירות בהגדרות.</li>
+      </ul>
+      <div class="credit added-credit">
+        <img class="avatar" src="https://github.com/shmuel-sinay.png?size=108" alt="shmuel-sinay"
+             onerror="this.style.display='none'" />
+        <div class="credit-text">
+          <div class="credit-name">התוספת פותחה על ידי shmuel-sinay</div>
+          <div class="credit-links">
+            <a href="https://github.com/shmuel-sinay" target="_blank" rel="noopener">GitHub</a> ·
+            <a href="https://github.com/shmuel-sinay/Mailtice" target="_blank" rel="noopener">הריפו של המהדורה</a>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- About -->
@@ -309,7 +350,7 @@
         <img class="avatar" src="https://github.com/abaye123.png?size=108" alt="abaye"
              onerror="this.style.display='none'" />
         <div class="credit-text">
-          <div class="credit-name">פותח על ידי abaye</div>
+          <div class="credit-name">Mailtice המקורי פותח על ידי abaye</div>
           <div class="credit-links">
             <a href="https://abaye.co" target="_blank" rel="noopener">abaye.co</a> ·
             <a href="https://github.com/abaye123" target="_blank" rel="noopener">GitHub</a>
@@ -321,12 +362,13 @@
     <footer>
       <a href="privacy.html">מדיניות פרטיות</a> ·
       <a href="terms.html">תנאי שימוש</a> ·
-      <a href="https://github.com/abaye123/Mailtice" target="_blank" rel="noopener">הריפו ב-GitHub</a>
+      <a href="https://github.com/shmuel-sinay/Mailtice" target="_blank" rel="noopener">הריפו של המהדורה</a> ·
+      <a href="https://github.com/abaye123/Mailtice" target="_blank" rel="noopener">הריפו המקורי</a>
     </footer>
   </main>
 
 <script>
-  const REPO = "abaye123/Mailtice";
+  const REPO = "shmuel-sinay/Mailtice";
   const API = `https://api.github.com/repos/${REPO}/releases/latest`;
   const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
   const LATEST_PAGE = `https://github.com/${REPO}/releases/latest`;
@@ -385,6 +427,11 @@
     for (const a of assets) {
       const n = a.name;
       // The Windows portable copy is a zip too, but one a visitor may want: it gets a link of its own.
+      // The browser extension (Gmail to a file for a computer without internet): a link of its own too.
+      if (/^mailtice-extension.*\.zip$/i.test(n)) {
+        out.push({ os: "browser", arch: "", name: n, url: a.browser_download_url, size: a.size, extension: true });
+        continue;
+      }
       if (/portable.*\.zip$/i.test(n)) {
         out.push({ os: "windows", arch: archOf(n), name: n, url: a.browser_download_url, size: a.size, portable: true });
         continue;
@@ -495,6 +542,11 @@
         $("portableLink").href = portable.url;
         $("portableLink").title = [portable.name, fmtSize(portable.size)].filter(Boolean).join(" · ");
         $("portableItem").hidden = false;
+      }
+      const extension = items.find(i => i.extension);
+      if (extension) {
+        $("extensionLink").href = extension.url;
+        $("extensionItem").hidden = false;
       }
 
       const btn = $("downloadBtn");

@@ -152,5 +152,14 @@
   },
   "privacy": {
     "message": "Read only: nothing in the mailbox is changed, and the mail goes nowhere but the file on this computer."
+  },
+  "range7": {
+    "message": "Last week"
+  },
+  "range60": {
+    "message": "Last two months"
+  },
+  "range180": {
+    "message": "Last six months"
   }
 }

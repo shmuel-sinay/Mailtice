@@ -63,6 +63,17 @@ function batchAnswer(boundary, parts) {
   assert.ok(took >= 400 && took < 2500, `took ${took} ms`);
 }
 
+// Google's real numbers: batches of 250 units on a 230-units-a-second budget must keep going, at
+// about one batch a second (this once waited forever).
+{
+  const limiter = new QuotaLimiter(230);
+  const start = Date.now();
+  for (let i = 0; i < 3; i++) await limiter.take(250);
+  const took = Date.now() - start;
+  assert.ok(took < 4000, `took ${took} ms`);
+  assert.ok(took >= 1500, `too fast: ${took} ms`);
+}
+
 // Buffered writes: the same bytes, in far fewer writes.
 {
   const writes = [];

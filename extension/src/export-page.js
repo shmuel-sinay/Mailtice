@@ -27,6 +27,24 @@ function setStatus(text, { error = false, progress = null, busy = false } = {}) 
   $("bar").hidden = !busy && progress === null;
 }
 
+function showSignedIn(next) {
+  auth = next;
+  $("account").textContent = t("signedInAs", next.email);
+  $("signin").textContent = t("switchAccount");
+  $("signin").classList.remove("primary");
+  $("start").disabled = false;
+  $("status").hidden = true;
+}
+
+/** The account signed in last time, back without a window when Google allows it. */
+async function resumeSignIn() {
+  const id = await clientId();
+  const { email } = await chrome.storage.local.get("email");
+  if (!id || !email) return;
+  const next = new GoogleAuth(id);
+  if (await next.resume(email)) showSignedIn(next);
+}
+
 async function signIn() {
   const id = await clientId();
   if (!id) {
@@ -39,12 +57,14 @@ async function signIn() {
     await next.signIn();
     const profile = await new GmailClient(next).profile();
     next.email = profile.emailAddress;
-    auth = next;
-    $("account").textContent = t("signedInAs", profile.emailAddress);
-    $("signin").textContent = t("switchAccount");
-    $("signin").classList.remove("primary");
-    $("start").disabled = false;
-    $("status").hidden = true;
+    await chrome.storage.local.set({ email: profile.emailAddress });
+    // The address is known only now: keep the session's token under it.
+    try {
+      await chrome.storage.session?.set({ token: { value: next.accessToken, expiresAt: next.expiresAt, email: next.email } });
+    } catch {
+      // No session storage: the quiet sign-in covers the next visit.
+    }
+    showSignedIn(next);
   } catch (e) {
     console.warn("Mailtice: sign-in failed", e);
     $("setupBox").open = true;
@@ -154,3 +174,4 @@ clientId().then((id) => {
   $("clientId").value = id;
   if (!id) $("setupBox").open = true;
 });
+resumeSignIn();
